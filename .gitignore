@@ -2,5 +2,10 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
-
 corpus/
+crash/
+reports/
+logs/
+*.jsonl
+crash_*
+builds/

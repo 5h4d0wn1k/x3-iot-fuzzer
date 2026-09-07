@@ -32,43 +32,42 @@ python3 firmware/iot_fuzzer.py --demo
 ## Usage
 
 ```bash
-python3 firmware/iot_fuzzer.py --demo
-python3 firmware/iot_fuzzer.py http --target http://localhost:8080 --rounds 1000
-python3 firmware/iot_fuzzer.py binary --target localhost:9999 --rounds 500
+python3 firmware/iot_fuzzer.py                          # offline demo (exit 0)
+python3 firmware/iot_fuzzer.py --seed 0x1337DEAD --rounds 400
+python3 firmware/iot_fuzzer.py --method mqtt            # fuzz only one fixture
+python3 firmware/iot_fuzzer.py --dry-run                # print plan, no execution
 ```
 
-## Example Output
+The fuzzer exercises the locally implemented, deliberately-buggy MQTT / CoAP /
+HTTP / binary parsers in `firmware/iot_fuzzer.py`, records and dedupes the
+crashes (uncaught `struct.error` / `IndexError` / `OverflowError`), saves
+reproducers to `crash/`, and writes `reports/fuzz_report.json`.
 
+## Tests
+
+```bash
+python3 -m unittest discover -s tests
 ```
-=== X3 - IoT Protocol Fuzzer ===
 
-[HTTP Fuzzing Round]
-  Target: http://localhost:8080
-  Mutations generated: 200
-  Crashes found: 3
-  Unique signatures: 3
-  Corpus saved: 12 files
+## Live Lab Test Plan
 
-[Binary Protocol Fuzzing Round]
-  Target: localhost:9999
-  Mutations generated: 200
-  Crashes found: 2
-  Unique signatures: 2
+1. `python3 firmware/iot_fuzzer.py` — fuzzer finds real parser exceptions across
+   all 4 planted-bug fixtures (mqtt, coap, http, binary); prints `PASS`, exit 0.
+2. Re-run with the same seed → byte-identical crash set (deterministic).
+3. Inspect `crash/` — each reproducer `.bin` re-raises the original exception when
+   fed back to its parser.
+4. `python3 -m unittest discover -s tests` — 17 deterministic assertions covering
+   mutation determinism, planted-bug triggers, crash dedup, reproducer replay, CLI.
 
-[Triage Report]
-  Total inputs: 400
-  Total crashes: 5
-  Unique crashes: 5
-  Crash rate: 1.25%
-  Top crash category: Buffer overflow (3 crashes)
+## Metrics
 
-[Crash Signatures]
-  SIG-001: HTTP header overflow (method: PUT, field: Content-Length)
-  SIG-002: HTTP null byte in URI
-  SIG-003: HTTP negative content-length
-  SIG-004: Binary frame length overflow
-  SIG-005: Binary frame truncated mid-payload
-```
+- Mutation engine: flip / replace / insert / delete / boundary over seed frames,
+  deterministic under an injected `random.Random`
+- 4 real protocol fixtures with planted memory-safety bug classes (overread,
+  width overflow, index underrun)
+- Crash dedup by SHA-1 signature; reproducers saved to `crash/` (gitignored)
+- JSON triage report in `reports/fuzz_report.json` (gitignored)
+- 17 unittest assertions, all offline/deterministic
 
 ## IMPORTANT: Read before use.
 
